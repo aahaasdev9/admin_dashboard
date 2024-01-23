@@ -365,8 +365,13 @@ code {
   padding: 10px;
   margin: 5px 10px;
   background-color: lightblue;
-  color: white;
+  color: black;
+  text-transform: capitalize;
   border-radius: 10px;
+}
+
+.search_results p{
+  color: darkblue;
 }
 
 .go_down_button {

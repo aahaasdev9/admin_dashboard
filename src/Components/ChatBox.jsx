@@ -26,6 +26,8 @@ function ChatBox() {
   const [searchVendor, setSearchVendor] = useState('');
   const [searchCustomer, setSearchCustomer] = useState('');
   const [selectedVedor, setselectedVedor] = useState([]);
+  const [chatID, setChatID] = useState('');
+  const [infoDetails, setInfoDetails] = useState('');
 
   const [customer_message_collections, set_customer_message_collections] = useState([]);
   const [vendorDetails, setVendorDetails] = useState([]);
@@ -39,16 +41,43 @@ function ChatBox() {
     showInfo: false,
   });
 
-  if (user.uid !== "XIidzTBzhaWAtUoRlTMUvvEnDlz1") {
-    alert("sorry you are not authetincat admin")
+  if (user.uid !== "V8dhiidmAUQVyywk7lsLWUMZMaC2") {
+    alert("vishnu is taking care of admin hence signing out ....")
     auth.signOut();
   }
 
   const addSelecetedVendor = (customerChatID) => {
-    filteredCustomerChats.map((value, key) => {
+    filteredCustomerChats.map((value) => {
       if (customerChatID === value.customer_collection_id) {
         if (value.supplier_id === '' || value.supplier_id === null || value.supplier_id === undefined) {
-          alert('vendor added')
+          const dataSet = {
+            customer_collection_id: customerChatID,
+            supplier_id: selectedVedor.id,
+            supplier_name: selectedVedor.username,
+            group_chat: true,
+            customer_name: infoDetails.customerChatID.customer_name,
+            status: infoDetails.customerChatID.status,
+            chat_created_date: null,
+            customer_mail_id: infoDetails.customerChatID.customer_mail_id,
+            supplier_mail_id: selectedVedor.email,
+            supplier_added_date: '',
+            comments: null,
+            chat_name: null,
+            customer_id: value.customer_id,
+            chat_id: infoDetails.customerChatID.chat_id
+          }
+          try {
+            axios.post('/updatechat', dataSet).then(res => {
+              if (res.data.status === 200) {
+                alert("suppler added successfully")
+              } else {
+                alert('something got mistake')
+              }
+            })
+          } catch (error) {
+            console.log(error);
+            throw new Error(error)
+          }
         } else {
           alert('vendor is already existing')
         }
@@ -59,7 +88,7 @@ function ChatBox() {
   const removeVendor = (customerChatID) => {
     alert(`vendor removed ${customerChatID}`)
   }
- 
+
   const searchVendorFun = (e) => {
     const searchVendor = e.target.value.toLowerCase();
     setSearchVendor(searchVendor)
@@ -99,8 +128,10 @@ function ChatBox() {
     }
   };
 
-  const getUserMessages = (value) => {
+  const getUserMessages = (value, value2, value3) => {
     setcustomerChatID(value);
+    setChatID(value2)
+    setInfoDetails(value3)
     const q = query(
       collection(db, "chats/chats_dats/" + value),
       orderBy("createdAt", "desc"),
@@ -162,22 +193,27 @@ function ChatBox() {
   };
 
   const fetchData = async () => {
+    console.log('fetching data...');
     try {
       const data_promise = filteredCustomerChats.map(async (value) => {
-        const q = query(
-          collection(db, "chats/chats_dats/" + value.customer_collection_id),
-          orderBy("createdAt", "asc"),
-          limit(50)
-        );
-        const querySnapshot = await getDocs(q);
-        const fetchedMessages = [];
-        querySnapshot.forEach((doc) => {
-          fetchedMessages.push({ ...doc.data(), id: doc.id });
-        });
-        const sortedMessages = fetchedMessages.sort(
-          (a, b) => a.createdAt - b.createdAt
-        );
-        return { customerChatID: value, sortedMessages };
+        if (value.customer_collection_id !== null && value.customer_collection_id !== undefined && value.customer_collection_id !== '') {
+          const q = query(
+            collection(db, "chats/chats_dats/" + value.customer_collection_id),
+            orderBy("createdAt", "asc"),
+            limit(50)
+          );
+          const querySnapshot = await getDocs(q);
+          const fetchedMessages = [];
+          querySnapshot.forEach((doc) => {
+            fetchedMessages.push({ ...doc.data(), id: doc.id });
+          });
+          const sortedMessages = fetchedMessages.sort(
+            (a, b) => a.createdAt - b.createdAt
+          );
+          console.log(sortedMessages);
+          return { customerChatID: value, sortedMessages };
+        }
+
       })
       const allData = await Promise.all(data_promise);
       setData(allData);
@@ -188,25 +224,31 @@ function ChatBox() {
 
   useEffect(() => {
     fetchData();
-  }, [customer_message_collections, filteredCustomerChats]);
+  }, [customer_message_collections]);
 
   useEffect(() => {
-    // axios.get('/chats').then(res => {  
-    //   if (res.data.status === 200) {
-    //     set_customer_message_collections(res.data.data);
-    //     setFilteredCustomerChats(res.data.data);
-    //     console.log(res);
-    //   }
-    // })
+    try {
+      axios.get('/getchats').then(res => {
+        if (res.data.status === 200) {
+          set_customer_message_collections(res.data.data);
+          setFilteredCustomerChats(res.data.data);
+          console.log(res.data.data);
+        }
+      })
+    } catch (error) {
+      console.log(error);
+    }
 
-    axios.get('https://api.aahaas.com/api/getvendors').then(res => {
-      if (res.data.status === 200) {
-        setVendorDetails(res.data.data);
-        setFilteredVendorDetails(res.data.data);
-        console.log(res);
-      }
-    })
-
+    try {
+      axios.get('/getvendors').then(res => {
+        if (res.data.status === 200) {
+          setVendorDetails(res.data.data);
+          setFilteredVendorDetails(res.data.data);
+        }
+      })
+    } catch (error) {
+      console.log(error);
+    }
   }, [])
 
   return (
@@ -226,12 +268,12 @@ function ChatBox() {
         <div className="customer_head">
           {
             cusData.map((value, key) => (
-              value.sortedMessages.length >= 1 &&
-              <div className="customer_details" key={key} onClick={() => getUserMessages(value.customerChatID.customer_collection_id)}>
-                <img className="user_image" src={value.sortedMessages[0]?.avatar} alt='user profile' />
-                <p className='user_name'>{value.customerChatID.customer_name}</p>
-                <p className='last_time'>{value.customerChatID.updated_at.slice(11, 16)}</p>
-                <p className='user_last_msg'>{value.sortedMessages[0]?.text}</p>
+              value?.sortedMessages.length >= 1 &&
+              <div className="customer_details" key={key} onClick={() => getUserMessages(value.customerChatID.customer_collection_id, value.customerChatID.chat_id, value)}>
+                <img className="user_image" src={value?.sortedMessages[0]?.avatar} alt='user profile' />
+                <p className='user_name'>{value?.customerChatID.customer_name} {value.customerChatID.group_chat && `collabed with ${value.customerChatID.supplier_name}`}</p>
+                <p className='last_time'>{value?.customerChatID.updated_at.slice(11, 16)}</p>
+                <p className='user_last_msg'>{value?.sortedMessages[value.sortedMessages.length - 1]?.text}</p>
               </div>
             ))
           }
@@ -288,10 +330,13 @@ function ChatBox() {
               value={searchVendor}
               onChange={(e) => { searchVendorFun(e) }}
             />
-            <p>select item : {selectedVedor.supplier_name}</p>
+            <p className='mx-2'>Supplier : {selectedVedor.username}</p>
             <div className="search_main">
               {filteredVendorDetails.map((brand, index) => (
-                <li className="search_results" key={index} onClick={() => setselectedVedor(brand)}>{brand.supplier_name}</li>
+                <div className="search_results" key={index}>
+                  <li key={index} onClick={() => setselectedVedor(brand)}>{brand.username}  ({brand.email})</li>
+                  <p>{brand.category || 'no details'}</p>
+                </div>
               ))}
             </div>
           </div>
@@ -318,28 +363,35 @@ function ChatBox() {
             <p className='fs-5 mx-3'><FontAwesomeIcon icon={faCircleInfo} className='info_icon' /></p>
             <p className='fs-5'>Chat info</p>
           </div>
-          <div className='border p-4'>
-            <p>Chat created : </p>
-            <p>Supplier added date : </p>
-            <p>Supplier mail id : </p>
-            <p>Supplier name : </p>
-            <p>Customer mail id : </p>
-            <p>Query status :
-              <select className='border-0 p-1 outline-0'>
-                <option value="select" selected>---</option>
-                <option value="completed">completed</option>
-                <option value="pending">pending</option>
-                <option value="rejected">rejected</option>
-              </select>
-            </p>
-            <p>
+          {infoDetails && showModal.showInfo &&
+            <div className='border p-4'>
+              <p>Chat created : {getTime(infoDetails.sortedMessages[0].createdAt, 'value2')}</p>
+              <p>Chat type : {infoDetails.customerChatID.group_chat || 'private chat'}</p>
+              <p>Supplier added date : {infoDetails.customerChatID.supplier_added_date || 'no details'}</p>
+              <p>Supplier mail id : {infoDetails.customerChatID.supplier_mail_id}</p>
+              <p>Supplier name :{infoDetails.customerChatID.supplier_name} </p>
+              <p>Customer mail id :{infoDetails.customerChatID.customer_mail_id} </p>
+              <p>Query status : {infoDetails.customerChatID.status} </p>
+
+              {/* {console.log(infoDetails)} */}
+
+              {/* need to add if it is necessary */}
+
+              {/* <select className='border-0 p-1 outline-0'>
+              <option value="select" selected>{infoDetails.customerChatID.status}</option>
+              <option value="completed">completed</option>
+              <option value="pending">pending</option>
+              <option value="rejected">rejected</option>
+            </select> */}
+
+              {/* <p>
               Comments :
               <input className='border-0 border-bottom mx-2' placeholder='Your comments here...' />
-            </p>
-
-          </div>
+            </p> */}
+            </div>
+          }
           <div className='buttons d-flex justify-content-center m-4'>
-            <button className='btn btn-primary mx-4'>Update</button>
+            <button className='btn btn-primary mx-4' onClick={() => { setShowModal(prevState => ({ ...prevState, showInfo: false })) }}>Okay</button>
             <button className='btn btn-secondary mx-4' onClick={() => { setShowModal(prevState => ({ ...prevState, showInfo: false })) }}>Cancel</button>
           </div>
         </div>
